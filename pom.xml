@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <groupId>cn.hehouhui</groupId>
+    <artifactId>collection-complete</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <skipTests>true</skipTests>
+        <!-- 格式化 -->
+        <format.action>format</format.action>
+        <!-- 开源许可 -->
+        <license.maven.plugin>3.0</license.maven.plugin>
+        <!-- 打包生成source时使用的目录 -->
+        <source.generate.dir>src/main/java</source.generate.dir>
+        <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
+        <maven-compiler-plugin.version>3.5.1</maven-compiler-plugin.version>
+    </properties>
+    
+    <developers>
+        <developer>
+            <name>HeHui</name>
+            <email>hehouhui@foxmail.com</email>
+            <organizationUrl>https://www.hehouhui.cn</organizationUrl>
+        </developer>
+    </developers>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <testSource>${java.version}</testSource>
+                    <testTarget>${java.version}</testTarget>
+                </configuration>
+            </plugin>
+            <!-- site插件显式声明，做一些个性化配置 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-site-plugin</artifactId>
+                <version>3.9.0</version>
+                <configuration>
+                    <!-- 指定环境为中文环境 -->
+                    <locales>zh</locales>
+                    <!-- 指定输出目录 -->
+                    <outputDirectory>${project.build.directory}/site</outputDirectory>
+                    <relativizeDecorationLinks>false</relativizeDecorationLinks>
+                </configuration>
+            </plugin>
+            
+            <!-- 代码格式化插件，自动格式化代码使之格式统一 -->
+            <plugin>
+                <groupId>net.revelc.code.formatter</groupId>
+                <artifactId>formatter-maven-plugin</artifactId>
+                <version>2.13.0</version>
+                <configuration>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <configFile>${project.basedir}/Formatter.xml</configFile>
+                    <sourceDirectory>${origin.source.dir}</sourceDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>${format.action}</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>${maven-source-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- 添加license头 -->
+            <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${license.maven.plugin}</version>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>remove</goal>
+                            <goal>format</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <quiet>true</quiet>
+                    <header>HEADER</header>
+                    <includes>
+                        <include>**/src/main/java/**</include>
+                        <include>**/src/test/java/**</include>
+                    </includes>
+                    <strictCheck>true</strictCheck>
+                    <mapping>
+                        <java>SLASHER_STYLE</java>
+                    </mapping>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+    
+    
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/listener-He/collection-complete</url>
+        </repository>
+    </distributionManagement>
+
+</project>
