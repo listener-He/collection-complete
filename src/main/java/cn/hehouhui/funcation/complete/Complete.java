@@ -1,11 +1,12 @@
 package cn.hehouhui.funcation.complete;
 
 
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
@@ -33,6 +34,7 @@ public class Complete<E> {
 
     private final List<Prepare<?, ?, E>> actuator = new ArrayList<>();
     private final Collection<E> collection;
+
 
     private Complete(final Collection<E> collection) {
         this.collection = collection;
@@ -95,6 +97,7 @@ public class Complete<E> {
         return prepare;
     }
 
+
     /**
      * 调用当前实例的over方法处理其内部的collection
      * 此方法的存在是为了提供一个便捷的方式，使得当前实例可以直接调用其内部的collection进行处理
@@ -104,6 +107,19 @@ public class Complete<E> {
      * 最后，再次遍历集合中的每个元素，对每个元素执行完成操作
      */
     public void over() {
+        over(null);
+    }
+
+
+    /**
+     * 执行初始化和完成操作于集合中的每个元素
+     * 如果集合或执行器为空，则仅清除actuator
+     * 此方法首先对集合中的每个元素执行初始化操作，然后对每个元素执行完成操作
+     * 使用CompletableFuture来并行执行完成操作，可以选择性地使用提供的执行器
+     *
+     * @param executor 用于执行完成操作的线程池执行器，可以为空
+     */
+    public void over(Executor executor) {
         // 检查集合是否为空，如果为空，则不执行任何操作
         if (EmptyUtil.isEmpty(collection) || EmptyUtil.isEmpty(actuator)) {
             actuator.clear();
@@ -114,7 +130,12 @@ public class Complete<E> {
         collection.forEach(item -> actuator.forEach(prepare -> prepare.init(item)));
 
         // 再次遍历集合中的每个元素，对每个元素执行完成操作
-        collection.forEach(item -> actuator.forEach(prepare -> prepare.finish().accept(item)));
+        if (executor == null) {
+            collection.forEach(item -> actuator.forEach(prepare -> prepare.finish().accept(item)));
+        } else {
+            // 使用CompletableFuture来并行执行这些操作，以提高效率
+            CompletableFuture.allOf(collection.stream().map(item -> CompletableFuture.runAsync(() -> actuator.forEach(prepare -> prepare.finish().accept(item)), executor)).toArray(CompletableFuture[]::new)).join();
+        }
 
         // 清空actuator列表，以便下一次使用
         actuator.clear();
