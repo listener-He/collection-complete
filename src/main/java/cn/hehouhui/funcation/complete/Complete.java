@@ -8,7 +8,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 补充函数
@@ -131,10 +133,11 @@ public class Complete<E> {
 
         // 再次遍历集合中的每个元素，对每个元素执行完成操作
         if (executor == null) {
-            collection.forEach(item -> actuator.forEach(prepare -> prepare.finish().accept(item)));
+            actuator.stream().map(Prepare::finish).reduce(Consumer::andThen).ifPresent(collection::forEach);
         } else {
             // 使用CompletableFuture来并行执行这些操作，以提高效率
-            CompletableFuture.allOf(collection.stream().map(item -> CompletableFuture.runAsync(() -> actuator.forEach(prepare -> prepare.finish().accept(item)), executor)).toArray(CompletableFuture[]::new)).join();
+            List<CompletableFuture<Consumer<E>>> futures = actuator.stream().map(prepare -> CompletableFuture.supplyAsync(prepare::finish, executor)).collect(Collectors.toList());
+            futures.stream().map(CompletableFuture::join).reduce(Consumer::andThen).ifPresent(collection::forEach);
         }
 
         // 清空actuator列表，以便下一次使用
