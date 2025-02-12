@@ -99,6 +99,30 @@ public class Complete<E> {
         return prepare;
     }
 
+    /**
+     * 执行一个操作并完成流程，如果没有特定的执行结果.
+     * 此方法提供了一种统一的方式来结束一个流程或操作，而不需指定具体的完成结果.
+     * 它通过返回一个Complete对象来表示流程或操作已经尝试完成，无论是否有实际的执行结果.
+     *
+     * @return 返回一个Complete对象，表示操作的完成状态.如果操作没有特定的结果，则结果为null.
+     */
+    public Complete<E> run() {
+        return finish(null);
+    }
+
+    /**
+     * 执行当前存量函数设置值，然后清空执行器并返回当前对象
+     * 此方法用于标记当前操作或流程已完成它通常在操作的最后一步调用，以表示操作结束
+     *
+     * @param executor 调度器
+     *
+     * @return 返回当前对象实例，以便进行链式调用或进一步操作
+     */
+    public Complete<E> finish(Executor executor) {
+        over(executor);
+        return this;
+    }
+
 
     /**
      * 调用当前实例的over方法处理其内部的collection

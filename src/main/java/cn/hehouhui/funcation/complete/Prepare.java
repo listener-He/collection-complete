@@ -2,11 +2,13 @@ package cn.hehouhui.funcation.complete;
 
 
 import java.util.*;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * 准备
@@ -16,7 +18,9 @@ import java.util.function.Predicate;
  */
 public class Prepare<I, N, E> {
 
-    private Set<SetGet<E, I, N>> setGetList;
+    private volatile Set<SetGet<E, I, N>> setGetList;
+
+    private volatile Set<SetGet<E, List<I>, List<N>>> collSetGetList;
 
     private final Write<I, N> write;
 
@@ -40,6 +44,30 @@ public class Prepare<I, N, E> {
      */
     public Complete<E> then() {
         return father;
+    }
+
+    /**
+     * 执行当前存量任务
+     * <p>
+     * 此方法用于在当前流程或任务完成时，执行定义在{@link Complete#over()}中的操作
+     * 它提供了一种机制，确保在流程的特定阶段执行某些操作，例如资源释放、通知或其他清理工作
+     * 然后返回当前对象，以支持链式调用和进一步操作
+     *
+     * @return 返回Complete对象，允许进行链式调用或进一步操作
+     */
+    public Complete<E> doThen() {
+        return father.run();
+    }
+
+    /**
+     * 执行当前存量任务然后准备继续添加其他任务
+     *
+     * @param executor 调度器
+     *
+     * @return 返回Complete对象，使得可以链式调用其他方法
+     */
+    public Complete<E> doThen(Executor executor) {
+        return father.finish(executor);
     }
 
     /**
@@ -98,6 +126,49 @@ public class Prepare<I, N, E> {
     }
 
     /**
+     * 向Prepare对象中添加一个用于设置和获取节点信息的SetGet对象
+     * 此方法允许通过提供一个函数和一个双消费者来定义如何从边对象中获取ID以及如何设置名称
+     *
+     * @param idGetter   一个函数，用于从边对象中获取节点ID
+     * @param nameSetter 一个双消费者，用于将名称设置到边对象中
+     *
+     * @return 返回Prepare对象本身，允许链式调用
+     */
+    public Prepare<I, N, E> addColl(Function<? super E, List<I>> idGetter,
+                                    BiConsumer<? super E, List<N>> nameSetter) {
+        return addColl(new SetGet<>(idGetter, nameSetter));
+    }
+
+
+    /**
+     * 向当前对象中添加一个新的SetGet实例
+     * 此方法用于在当前对象的setGetList中添加一个新的SetGet实例，以实现对边相关信息的管理
+     *
+     * @param setGet 要添加的SetGet实例，用于管理边相关信息
+     *
+     * @return 返回当前的Complete对象，支持链式调用
+     */
+    public Prepare<I, N, E> addColl(final SetGet<E, List<I>, List<N>> setGet) {
+        // 检查传入的SetGet实例是否为null，如果为null，则直接返回当前对象
+        if (setGet == null) {
+            return this;
+        }
+        // 检查当前对象的setGetList是否为null，如果为null，则进行初始化
+        if (this.collSetGetList == null) {
+            // 使用同步代码块确保线程安全，防止多个线程同时初始化setGetList
+            synchronized (this) {
+                if (collSetGetList == null) {
+                    this.collSetGetList = new HashSet<>();
+                }
+            }
+        }
+        // 将传入的SetGet实例添加到setGetList中
+        this.collSetGetList.add(setGet);
+        // 返回当前对象，支持链式调用
+        return this;
+    }
+
+    /**
      * 准备操作
      * 此方法用于在执行实际操作之前进行必要的准备和检查它通过调用关系图中的所有设置方法来收集数据，
      * 并将它们添加到write集合中，以确保所有必要的数据都已准备好
@@ -131,16 +202,29 @@ public class Prepare<I, N, E> {
         Map<? super I, ? extends N> map = write.get();
         // 返回一个Consumer对象，该对象将在每个元素上执行设置操作
         return target -> {
-            if (!filter.test(target) || EmptyUtil.isEmpty(map)) {
+            if (!filter.test(target)|| EmptyUtil.isEmpty(map)) {
                 return;
             }
-            // 遍历所有设置操作，并在目标元素上执行
-            setGetList.forEach(s -> {
-                N n = map.get(s.get(target));
-                if (n != null) {
-                    s.set(target, n);
-                }
-            });
+            if (EmptyUtil.isNotEmpty(setGetList)) {
+                // 遍历所有设置操作，并在目标元素上执行
+                setGetList.forEach(s -> {
+                    N n = map.get(s.get(target));
+                    if (n != null) {
+                        s.set(target, n);
+                    }
+                });
+            }
+
+            if (EmptyUtil.isNotEmpty(collSetGetList)) {
+                collSetGetList.forEach(s -> {
+                    List<I> ids = s.get(target);
+                    if (EmptyUtil.isNotEmpty(ids)) {
+                        List<N> names = ids.stream().map(map::get).filter(Objects::nonNull).collect(Collectors.toList());
+                        s.set(target, names);
+                    }
+                });
+            }
+
         };
     }
 
