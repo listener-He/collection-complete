@@ -178,7 +178,13 @@ public class Prepare<I, N, E> {
     protected void init(final E target) {
         if (filter.test(target)) {
             // 使用流处理来获取目标数据，并添加到write集合中
-            setGetList.stream().map(s -> s.get(target)).forEach(write::add);
+            if (EmptyUtil.isNotEmpty(collSetGetList)) {
+                // 使用流处理来获取目标数据，并添加到write集合中
+                collSetGetList.stream().filter(s -> s.get(target) != null).flatMap(s -> s.get(target).stream()).forEach(write::add);
+            }
+            if (EmptyUtil.isNotEmpty(setGetList)) {
+                setGetList.stream().map(s -> s.get(target)).forEach(write::add);
+            }
             // 设置准备状态为true，表示已执行准备操作
             isPrepare.set(true);
         }
