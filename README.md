@@ -86,33 +86,68 @@ init(E target) 方法用于初始化准备工作，finish() 方法用于执行�
 负责管理 ID 集合和名称映射。
 通过 add(I id) 方法添加 ID，通过 get() 方法获取名称映射。
 
-```text
+```mermaid
+classDiagram
+    class SetGet~E, I, N~ {
+-Function~? super E, ? extends I~ idGetter
+-BiConsumer~? super E, ? super N~ nameSetter
++get(E target) I
++set(E target, N value)
+}
 
-+-------------------+       +-------------------+       +-------------------+       +-------------------+
-|   Complete<E>     |       |   Prepare<I,N,E>  |       |   SetGet<E,I,N>   |       |   Write<I,N>      |
-|-------------------|       |-------------------|       |-------------------|       |-------------------|
-| + start()         |<------| + add()           |<------| + get()           |       | + add()           |
-| + build()         |       | + addColl()       |       | + set()           |       | + get()           |
-| + run()           |       | + init()          |       +-------------------+       +-------------------+
-| + finish()        |       | + finish()        |
-| + over()          |       +-------------------+
-+-------------------+
+class Write~I, N~ {
+-Function~List~I~, Map~? super I, ? extends N~~ nameMapCreator
+-Set~I~ ids
+-Map~? super I, ? extends N~ map
++add(I id)
++get() Map~? super I, ? extends N~
+    }
 
+class Prepare~I, N, E~ {
+-Set~SetGet~E, I, N~~ setGetList
+-Set~SetGet~E, List~I~, List~N~~ collSetGetList
+-Write~I, N~ write
+-Predicate~E~ filter
++add(SetGet~E, I, N~ setGet) Prepare~I, N, E~
++init(E target)
++finish() Consumer~E~
+}
+
+class Complete~E~ {
+-List~Prepare~??, ??~ actuator
+-Collection~E~ collection
++build(Function~List~I~, Map~? super I, ? extends N~~ nameMapCreator) Prepare~I, N, E~
++over()
+}
+
+Complete~E~ "1" --> "*" Prepare~I, N, E~ : contains
+Prepare~I, N, E~ "1" --> "1" Write~I, N~ : manages
+Prepare~I, N, E~ "1" --> "*" SetGet~E, I, N~ : aggregates
+Prepare~I, N, E~ --> Complete~E~ : parent
+Complete~E~ --> "1" Collection~E~ : processes
 ```
 
 ## 调用流程图
-```text
-+-------------------+       +-------------------+       +-------------------+       +-------------------+
-|   Complete<E>     |       |   Prepare<I,N,E>  |       |   SetGet<E,I,N>   |       |   Write<I,N>      |
-|-------------------|       |-------------------|       |-------------------|       |-------------------|
-| + start()         |       | + add()           |       | + get()           |       | + add()           |
-|                   |       | + addColl()       |       | + set()           |       | + get()           |
-| + build()         |------>|                   |       |                   |       |                   |
-|                   |       | + init()          |<------|                   |       |                   |
-| + run()           |       | + finish()        |       |                   |       |                   |
-| + finish()        |       |                   |       |                   |       |                   |
-| + over()          |------>|                   |       |                   |       |                   |
-+-------------------+       +-------------------+       +-------------------+       +-------------------+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Complete
+    participant Prepare
+    participant Write
+    participant SetGet
+
+    User->>Complete: start(collection)
+    Complete->>Prepare: build(nameMapCreator)
+    Prepare-->>Complete: add to actuator
+    loop for each element
+        Prepare->>Write: add IDs via SetGet
+    end
+    User->>Complete: over()
+    Complete->>Prepare: init(elements)
+    Prepare->>Write: get() map
+    loop for each element
+        Prepare->>SetGet: apply mapping
+    end
 ```
 
 **详细调用流程说明**
